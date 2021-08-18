@@ -289,7 +289,7 @@ void fastboot_flash_dump_ptn(void)
 struct fastboot_ptentry *fastboot_flash_find_ptn(const char *name)
 {
 	unsigned int n;
-
+	fastboot_load_partitions();
 	for (n = 0; n < g_pcount; n++) {
 		/* Make sure a substring is not accepted */
 		if (strlen(name) == strlen(g_ptable[n].name)) {
