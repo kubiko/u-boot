@@ -20,6 +20,10 @@ DECLARE_GLOBAL_DATA_PTR;
 #define IMAGE_MAX_HASHED_NODES		100
 #define FIT_MAX_HASH_PATH_BUF		4096
 
+#if !defined(USE_HOSTCC) && (defined(CONFIG_IMX_HAB) || defined(CONFIG_AHAB_BOOT))
+int imx_hab_is_locked(void);
+#endif /* !USE_HOSTCC && (CONFIG_IMX_HAB || CONFIG_AHAB_BOOT) */
+
 /**
  * fit_region_make_list() - Make a list of image regions
  *
@@ -128,6 +132,14 @@ int fit_image_check_sig(const void *fit, int noffset, const void *data,
 	region.size = size;
 
 	if (info.crypto->verify(&info, &region, 1, fit_value, fit_value_len)) {
+
+#if !defined(USE_HOSTCC) && (defined(CONFIG_IMX_HAB) || defined(CONFIG_AHAB_BOOT))
+		// if fuses are not blown, only warn
+		if (!imx_hab_is_locked()) {
+			puts(" Verification failed! But device is unlocked... ");
+			return 0;
+		}
+#endif /* !USE_HOSTCC && (CONFIG_IMX_HAB || CONFIG_AHAB_BOOT) */
 		*err_msgp = "Verification failed";
 		return -1;
 	}
@@ -534,6 +546,15 @@ static int fit_config_check_sig(const void *fit, int noffset, int conf_noffset,
 	fit_region_make_list(fit, fdt_regions, count, region);
 	if (info.crypto->verify(&info, region, count, fit_value,
 				fit_value_len)) {
+
+#if !defined(USE_HOSTCC) && (defined(CONFIG_IMX_HAB) || defined(CONFIG_AHAB_BOOT))
+		// if fuses are not blown, only warn
+		if (!imx_hab_is_locked()) {
+			puts(" Verification failed! But device is unlocked... ");
+			return 0;
+		}
+#endif /* !USE_HOSTCC && (CONFIG_IMX_HAB || CONFIG_AHAB_BOOT) */
+
 		*err_msgp = "Verification failed";
 		return -1;
 	}
