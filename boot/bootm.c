@@ -41,9 +41,14 @@
 #include <image.h>
 #include <u-boot/zlib.h>
 
+#if !defined(USE_HOSTCC) && defined(CONFIG_ANDROID_BOOT_IMAGE)
+#include <android_image.h>
+#endif /* !USE_HOSTCC && CONFIG_ANDROID_BOOT_IMAGE */
+
 #define MAX_CMDLINE_SIZE	SZ_4K
 
 #define IH_INITRD_ARCH IH_ARCH_DEFAULT
+#define COMMANDLINE_LENGTH			2048
 
 #ifndef USE_HOSTCC
 
@@ -134,6 +139,9 @@ static int boot_get_kernel(const char *addr_fit, struct bootm_headers *images,
 	const void *buf;
 	const char *fit_uname_config = NULL, *fit_uname_kernel = NULL;
 #if CONFIG_IS_ENABLED(FIT)
+#ifdef CONFIG_ANDROID_BOOT_IMAGE
+	ulong		afit_addr;
+#endif
 	int		os_noffset;
 #endif
 
@@ -245,6 +253,47 @@ static int boot_get_kernel(const char *addr_fit, struct bootm_headers *images,
 	case IMAGE_FORMAT_ANDROID: {
 		int ret;
 
+#if CONFIG_IS_ENABLED(FIT)
+		struct andr_image_data img_data = {0};
+		if (!android_image_get_data(buf, NULL, &img_data)) {
+			return -EINVAL;
+		}
+		afit_addr = android_image_get_kernel_addr(&img_data, IH_COMP_NONE);
+		if (IMAGE_FORMAT_FIT == genimg_get_format((const void *)afit_addr)) {
+			printf("## Detected FIT image wrapped in android boot image\n");
+			// append to the boot address fdt file name if it's defined
+			static char boot_addr_start[128];
+			char *fdtfile = env_get("fdtfile");
+			if (fdtfile) {
+				// in case fdtfile is wrapped in double quotes, ignore those
+				if (*fdtfile == '"') {
+					++fdtfile; // removing leading "
+					snprintf(boot_addr_start, sizeof(boot_addr_start) - 1,
+						"0x%p#%s", (void *)afit_addr, fdtfile);
+					boot_addr_start[strlen(boot_addr_start)-1] = 0; // removing closing "
+				} else {
+					snprintf(boot_addr_start, sizeof(boot_addr_start) - 1,
+						"0x%p#%s", (void *)afit_addr, fdtfile);
+				}
+			} else {
+				snprintf(boot_addr_start, sizeof(boot_addr_start) - 1,
+					"0x%p", (void *)afit_addr);
+			}
+			// check if there is cmdline field to process
+			const char *cmdline = android_image_get_cmdline(&img_data);
+			if (NULL != cmdline && strlen(cmdline)) {
+				char commandline[COMMANDLINE_LENGTH] = {0};
+				char *bootargs = env_get("bootargs");
+				if (bootargs) {
+					sprintf(commandline, "%s %s", bootargs, cmdline);
+				} else {
+					sprintf(commandline, "%s ", cmdline);
+				}
+				env_set("bootargs", commandline);
+			}
+			return boot_get_kernel(boot_addr_start, images, os_data, os_len, kernp);
+		}
+#endif // CONFIG_IS_ENABLED(FIT)
 		boot_img = buf;
 		vendor_boot_img = NULL;
 		if (IS_ENABLED(CONFIG_CMD_ABOOTIMG)) {
