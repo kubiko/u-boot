@@ -40,6 +40,18 @@
 #include <android_image.h>
 #endif /* !USE_HOSTCC && CONFIG_ANDROID_BOOT_IMAGE */
 
+#if !defined(USE_HOSTCC) && defined(CONFIG_IMX_HAB)
+#include <asm/mach-imx/hab.h>
+#endif /* !USE_HOSTCC && CONFIG_IMX_HAB */
+
+#if !defined(USE_HOSTCC) && defined(CONFIG_IMX_ELE)
+#include <asm/arch/imx-regs.h>
+#endif /* !USE_HOSTCC && CONFIG_IMX_ELE */
+
+#if !defined(USE_HOSTCC) && defined(CONFIG_AHAB_BOOT) && !defined(CONFIG_IMX_ELE)
+#include <fuse.h>
+#endif /* !USE_HOSTCC && CONFIG_AHAB_BOOT && !CONFIG_IMX_ELE */
+
 #define MAX_CMDLINE_SIZE	SZ_4K
 
 #define IH_INITRD_ARCH IH_ARCH_DEFAULT
@@ -958,6 +970,103 @@ int bootm_process_cmdline_env(int flags)
 	return 0;
 }
 
+#if !defined(USE_HOSTCC) && (defined(CONFIG_IMX_HAB) || defined(CONFIG_AHAB_BOOT))
+
+#define DANGEROUS_ARG     "dangerous"
+#define PANIC_ARG         "panic=-1"
+#define EXTRA_ARG_LEN (sizeof(DANGEROUS_ARG) - 1)
+
+/**
+ * @brief Check if i.MX system is in OPEN or LOCKED state
+ *
+ * Depending on the platform, use existing functin or read registers
+ * this eases development on devices which are not locked down
+ * returns:
+ *    0: OPEN
+ *    1: LOCKED
+ */
+int imx_hab_is_locked(void)
+{
+#if defined(CONFIG_AHAB_BOOT) && !defined(CONFIG_IMX_ELE)
+	int locked = 1;
+	uint32_t fuse_val;
+	int ret;
+#endif /* CONFIG_AHAB_BOOT && !CONFIG_IMX_ELE */
+
+#ifdef  CONFIG_IMX_HAB
+	return imx_hab_is_enabled();
+#elif defined(CONFIG_IMX_ELE)
+	/*
+	 * Read the lifecycle from the FSB, as ahab_status does. It is a one
+	 * hot value in the low 10 bits, with a per SoC encoding: OEM open
+	 * is 0x10 on i.MX94/95/952 (register at 0x414) and 0x8 on
+	 * i.MX8ULP/91/93 (register at 0x41c), see ele_ahab.c. Every state
+	 * past OEM open (OEM closed, locked, field return) enforces signed
+	 * boot. The lifecycle cached in gd from ELE get info uses another
+	 * encoding on i.MX93: an OEM open part reports 0x10 there and 0x8
+	 * in the FSB.
+	 * The fuse map differs between those SoCs, the SEC_CONFIG word
+	 * read below reports open i.MX95 parts as locked.
+	 * Without a lifecycle stay locked.
+	 */
+	u32 fsb_lc_offset = 0x41c;
+	u32 lc_oem_open = 0x8;
+	u32 lc;
+
+	if (IS_ENABLED(CONFIG_IMX95) || IS_ENABLED(CONFIG_IMX94) ||
+	    IS_ENABLED(CONFIG_IMX952)) {
+		fsb_lc_offset = 0x414;
+		lc_oem_open = 0x10;
+	}
+
+	lc = readl(FSB_BASE_ADDR + fsb_lc_offset) & 0x3ff;
+	debug("%s: lifecycle 0x%x, OEM open 0x%x\n", __func__, lc,
+	      lc_oem_open);
+
+	return !lc || lc > lc_oem_open;
+#elif CONFIG_AHAB_BOOT
+	// Bank 1, Word 0 contains the SEC_CONFIG fuses
+	ret = fuse_read(1, 0, &fuse_val);
+	if (!ret) {
+		locked = (fuse_val & 0x2) ? 1 : 0;
+	}
+	return locked;
+#endif /* CONFIG_IMX_HAB / CONFIG_AHAB_BOOT */
+}
+
+/**
+ * @brief Update cmdline with "dangerous" on devices
+ * with disabled secure boot otherwise add "panic=-1"
+ *
+ * Check state of the fuses on i.MX devices
+ * if device has not enabled secure boot, add "dangerous" to the cmdline
+ * this eases development on devices which are not locked down
+ */
+void fixup_secure_linux(void)
+{
+	char *buf;
+	char *cmdline = env_get("bootargs");
+
+	if (!cmdline)
+		cmdline = "";
+	/* Allocate space for maximum possible new command line */
+	buf = malloc(strlen(cmdline) + 1 + EXTRA_ARG_LEN + 1);
+	if (!buf) {
+		debug("%s: out of memory\n", __func__);
+		return;
+	}
+	if (imx_hab_is_locked()) {
+		sprintf(buf, "%s %s", cmdline, PANIC_ARG);
+		printf("Device is locked, adding \"%s\" to bootargs\n", PANIC_ARG);
+	} else {
+		sprintf(buf, "%s %s", cmdline, DANGEROUS_ARG);
+		printf("Device is unlocked, adding \"%s\" to bootargs\n", DANGEROUS_ARG);
+	}
+	env_set("bootargs", buf);
+	free(buf);
+}
+#endif /* !USE_HOSTCC && (CONFIG_IMX_HAB || CONFIG_AHAB_BOOT) */
+
 int bootm_measure(struct bootm_headers *images)
 {
 	int ret = 0;
@@ -1125,6 +1234,9 @@ int bootm_run_states(struct bootm_info *bmi, int states)
 			ret = CMD_RET_FAILURE;
 			goto err;
 		}
+#if !defined(USE_HOSTCC) && (defined(CONFIG_IMX_HAB) || defined(CONFIG_AHAB_BOOT))
+		fixup_secure_linux();
+#endif /* !USE_HOSTCC && (CONFIG_IMX_HAB || CONFIG_AHAB_BOOT) */
 		ret = boot_fn(BOOTM_STATE_OS_PREP, bmi);
 	}
 
