@@ -49,6 +49,7 @@ struct boot_mode {
 	unsigned cfg_val;
 };
 
+void imx_hab_disable_console(void);
 void add_board_boot_modes(const struct boot_mode *p);
 void boot_mode_apply(unsigned cfg_val);
 extern const struct boot_mode soc_boot_modes[];

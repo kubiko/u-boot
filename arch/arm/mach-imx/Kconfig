@@ -84,6 +84,7 @@ config IMX_HAB
 	select SPL_DRIVERS_MISC if SPL
 	imply CMD_DEKBLOB if HAS_CAAM
 	imply CMD_PROVISION_KEY if HAS_CAAM
+	imply DISABLE_CONSOLE
 	help
 	  This option enables the support for secure boot (HAB).
 	  See doc/imx/habv4/* for more details.

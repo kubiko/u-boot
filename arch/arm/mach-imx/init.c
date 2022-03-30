@@ -10,6 +10,13 @@
 #include <asm/mach-imx/boot_mode.h>
 #include <asm/arch/crm_regs.h>
 
+#ifdef CONFIG_IMX_HAB
+#include <asm/global_data.h>
+#include <asm/mach-imx/hab.h>
+
+DECLARE_GLOBAL_DATA_PTR;
+#endif
+
 void init_aips(void)
 {
 	struct aipstz_regs *aips1, *aips2, *aips3;
@@ -136,5 +143,21 @@ u32 imx6_src_get_boot_mode(void)
 		return readl(&src_base->gpr9);
 	else
 		return readl(&src_base->sbmr1);
+}
+#endif
+
+void imx_hab_disable_console(void) {
+#ifdef CONFIG_IMX_HAB
+	if (imx_hab_is_enabled()) {
+		gd->flags |= GD_FLG_DISABLE_CONSOLE;
+	} else {
+		puts(" Device is unlocked; enabling shell");
+	}
+#endif
+}
+
+#if !defined(CONFIG_SYS_BOARD)
+int board_early_init_f(void) {
+	imx_hab_disable_console();
 }
 #endif
