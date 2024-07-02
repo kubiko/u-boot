@@ -1862,6 +1862,9 @@ int android_image_get_kernel_v3(const struct boot_img_hdr_v3 *hdr,
 				void *fdt_addr,
 				bool bootconfig);
 int32_t add_bootconfig_trailer(uint64_t bootconfig_start_addr, uint32_t bootconfig_size);
+const char *android_image_get_cmdline(const struct andr_image_data *img_data);
+
+ulong android_image_get_kernel_addr(struct andr_image_data *img_datagit, ulong comp);
 
 /**
  * android_image_get_bootimg_size() - Extract size of Android boot image

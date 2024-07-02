@@ -401,7 +401,7 @@ bool android_image_get_data(const void *boot_hdr, const void *vendor_boot_hdr,
 	return true;
 }
 
-static ulong android_image_get_kernel_addr(struct andr_image_data *img_data,
+ulong android_image_get_kernel_addr(struct andr_image_data *img_data,
 					   ulong comp)
 {
 	/*
@@ -430,6 +430,11 @@ static ulong android_image_get_kernel_addr(struct andr_image_data *img_data,
 		return env_get_ulong("kernel_addr_r", 16, 0);
 
 	return img_data->kernel_addr;
+}
+
+const char *android_image_get_cmdline(const struct andr_image_data *img_data)
+{
+	return img_data->kcmdline;
 }
 
 extern int board_phys_sdram_size(phys_size_t *size);
