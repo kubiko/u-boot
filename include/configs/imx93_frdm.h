@@ -39,4 +39,6 @@
 #define NS_ARCH_ARM64 1
 #endif
 
+#include "ubuntu_env.h"
+
 #endif

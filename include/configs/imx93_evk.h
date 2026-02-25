@@ -37,4 +37,6 @@
 #include "imx93_evk_android.h"
 #endif
 
+#include "ubuntu_env.h"
+
 #endif

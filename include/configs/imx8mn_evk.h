@@ -31,4 +31,6 @@
 #include "imx8mn_evk_android.h"
 #endif
 
+#include "ubuntu_env.h"
+
 #endif

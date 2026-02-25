@@ -22,4 +22,6 @@
 
 #define WDOG_BASE_ADDR		WDG3_BASE_ADDR
 
+#include "ubuntu_env.h"
+
 #endif
