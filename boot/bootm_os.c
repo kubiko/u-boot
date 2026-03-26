@@ -15,6 +15,7 @@
 #include <lmb.h>
 #include <log.h>
 #include <asm/global_data.h>
+#include <linux/errno.h>
 #include <linux/libfdt.h>
 #include <malloc.h>
 #include <mapmem.h>
@@ -502,6 +503,10 @@ static int do_bootm_efi(int flag, struct bootm_info *bmi)
 	struct bootm_headers *images = bmi->images;
 	int ret;
 	void *image_buf;
+	void *fdt = images->ft_len ? images->ft_addr : EFI_FDT_USE_INTERNAL;
+	void *fdt_copy = NULL;
+	int nodeoffset;
+	int fdt_size;
 
 	if (flag != BOOTM_STATE_OS_GO)
 		return 0;
@@ -516,11 +521,49 @@ static int do_bootm_efi(int flag, struct bootm_info *bmi)
 	       images->os.load);
 	bootstage_mark(BOOTSTAGE_ID_RUN_OS);
 
-	ret = efi_binary_run(image_buf, images->os.image_len,
-			     images->ft_len
-			     ? images->ft_addr : EFI_FDT_USE_INTERNAL,
-				 (void *)images->initrd_start,
-				 (size_t)(images->initrd_end - images->initrd_start));
+	/*
+	 * if there is ramdisk and fdt, set the ramdisk info to the fdt
+	 *
+	 * In a copy with room for it, never in place: the fdt sits in whatever
+	 * buffer the FIT loader put it in, which for a blob that is not 8 byte
+	 * aligned inside the FIT is a heap allocation of exactly its size (see
+	 * fit_image_load()). Growing that one in place wrote the new properties
+	 * over the next heap chunk, and U-Boot crashed in its EFI setup.
+	 */
+	if (images->ft_len && images->initrd_start) {
+		printf("## Detected ramdisk, and EFI combo, setting ramdisk addr in FDT..\n");
+		fdt_size = fdt_totalsize(images->ft_addr) + 4096;
+		fdt_copy = memalign(8, fdt_size);
+		if (!fdt_copy) {
+			printf("## Cannot allocate %d bytes for the fdt\n", fdt_size);
+			return -ENOMEM;
+		}
+		ret = fdt_open_into(images->ft_addr, fdt_copy, fdt_size);
+		if (ret) {
+			printf("## Cannot copy the fdt: %s\n", fdt_strerror(ret));
+			free(fdt_copy);
+			return -EINVAL;
+		}
+		fdt = fdt_copy;
+
+		nodeoffset = fdt_path_offset(fdt, "/chosen");
+		if (nodeoffset >= 0) {
+			ret = fdt_setprop_u64(fdt, nodeoffset, "linux,initrd-start", images->initrd_start);
+			if (ret != 0)
+				printf("## Failed to set 'linux,initrd-start' to fdt: %s\n", fdt_strerror(ret));
+			ret = fdt_setprop_u64(fdt, nodeoffset, "linux,initrd-end", images->initrd_end);
+			if (ret != 0)
+				printf("## Failed to set 'linux,initrd-end' to fdt: %s\n", fdt_strerror(ret));
+		} else {
+			printf("## Missing /chosen subnode in the fdt \n");
+		}
+	}
+
+	/* efi_install_fdt() takes its own copy, so this one only lives until here */
+	ret = efi_binary_run(image_buf, images->os.image_len, fdt,
+			     (void *)images->initrd_start,
+			     (size_t)(images->initrd_end - images->initrd_start));
+	free(fdt_copy);
 
 	return ret;
 }
