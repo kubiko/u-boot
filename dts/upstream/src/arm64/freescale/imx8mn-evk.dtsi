@@ -11,6 +11,16 @@
 		stdout-path = &uart2;
 	};
 
+	signature {
+		required-mode = "any";
+		fit-key {
+			required ="conf";
+			algo ="sha256,rsa2048";
+			key-name-hint ="dev-fit-key";
+#include "u-boot-fit-pubkey.dtsi"
+		};
+	};
+
 	gpio-leds {
 		compatible = "gpio-leds";
 		pinctrl-names = "default";
