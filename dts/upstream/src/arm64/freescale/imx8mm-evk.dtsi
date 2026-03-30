@@ -14,6 +14,16 @@
 		stdout-path = &uart2;
 	};
 
+	signature {
+		required-mode = "any";
+		fit-key {
+			required ="conf";
+			algo ="sha256,rsa2048";
+			key-name-hint ="dev-fit-key";
+#include "u-boot-fit-pubkey.dtsi"
+		};
+	};
+
 	memory@40000000 {
 		device_type = "memory";
 		reg = <0x0 0x40000000 0 0x80000000>;
