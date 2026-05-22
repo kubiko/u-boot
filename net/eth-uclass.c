@@ -606,6 +606,8 @@ static int eth_post_probe(struct udevice *dev)
 			ret = eth_get_ops(dev)->read_rom_hwaddr(dev);
 			if (!ret)
 				source = "ROM";
+			// ensure MAC is not multicast
+			pdata->enetaddr[0] = pdata->enetaddr[0] & 0xFE;
 		}
 	}
 
