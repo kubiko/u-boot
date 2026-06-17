@@ -1357,6 +1357,118 @@ static int is_pte_valid(gpt_entry * pte)
 	}
 }
 
+/**
+ * part_get_info_efi_nested() - read a partition from a GPT embedded within a
+ *                              parent GPT partition
+ *
+ * The nested GPT uses LBA addresses relative to the start of the parent
+ * partition. This function translates the nested partition's relative LBAs
+ * into absolute LBAs on the disk and returns the result in @info.
+ *
+ * @desc:         block device descriptor
+ * @outer_start:  start LBA of the parent partition on the block device
+ * @outer_size:   size in blocks of the parent partition
+ * @part:         1-based partition number within the nested GPT
+ * @info:         filled with the nested partition information on success;
+ *                info->start is the absolute LBA on the block device
+ *
+ * Return: 0 on success, negative errno on error
+ */
+int part_get_info_efi_nested(struct blk_desc *desc, lbaint_t outer_start,
+			     lbaint_t outer_size, int part,
+			     struct disk_partition *info)
+{
+	ALLOC_CACHE_ALIGN_BUFFER_PAD(gpt_header, gpt_head, 1, desc->blksz);
+	gpt_entry *gpt_pte = NULL;
+	lbaint_t pte_blk;
+	size_t count;
+	lbaint_t blk_cnt;
+
+	if (part < 1) {
+		log_debug("Invalid nested partition number %d\n", part);
+		return -EINVAL;
+	}
+
+	/* Read the nested GPT header at LBA 1 relative to the parent partition */
+	if (blk_dread(desc, outer_start + GPT_PRIMARY_PARTITION_TABLE_LBA, 1,
+		      gpt_head) != 1) {
+		log_debug("Can't read nested GPT header\n");
+		return -EIO;
+	}
+
+	/*
+	 * Validate the header. Pass GPT_PRIMARY_PARTITION_TABLE_LBA (1) as the
+	 * expected my_lba value since the nested GPT uses relative addressing,
+	 * and outer_size - 1 as the last usable block bound.
+	 */
+	if (validate_gpt_header(gpt_head, GPT_PRIMARY_PARTITION_TABLE_LBA,
+				outer_size - 1)) {
+		log_debug("Invalid nested GPT header in partition at LBA " LBAF "\n",
+			  outer_start);
+		return -EINVAL;
+	}
+
+	/* Read the partition entries; their LBA is relative to outer_start */
+	count = le32_to_cpu(gpt_head->num_partition_entries) *
+		le32_to_cpu(gpt_head->sizeof_partition_entry);
+	blk_cnt = BLOCK_CNT(count, desc);
+	pte_blk = outer_start + le64_to_cpu(gpt_head->partition_entry_lba);
+
+	gpt_pte = memalign(ARCH_DMA_MINALIGN, PAD_TO_BLOCKSIZE(count, desc));
+	if (!gpt_pte) {
+		log_debug("Can't allocate memory for nested GPT entries\n");
+		return -ENOMEM;
+	}
+
+	if (blk_dread(desc, pte_blk, blk_cnt, gpt_pte) != blk_cnt) {
+		log_debug("Can't read nested GPT entries\n");
+		free(gpt_pte);
+		return -EIO;
+	}
+
+	if (validate_gpt_entries(gpt_head, gpt_pte)) {
+		log_debug("Invalid nested GPT entries CRC\n");
+		free(gpt_pte);
+		return -EINVAL;
+	}
+
+	if (part > le32_to_cpu(gpt_head->num_partition_entries) ||
+	    !is_pte_valid(&gpt_pte[part - 1])) {
+		log_debug("Invalid nested partition number %d\n", part);
+		free(gpt_pte);
+		return -EPERM;
+	}
+
+	/* Convert relative nested LBAs to absolute disk LBAs */
+	info->start = outer_start +
+		      (lbaint_t)le64_to_cpu(gpt_pte[part - 1].starting_lba);
+	info->size = (lbaint_t)le64_to_cpu(gpt_pte[part - 1].ending_lba) + 1
+		     - (lbaint_t)le64_to_cpu(gpt_pte[part - 1].starting_lba);
+	info->blksz = desc->blksz;
+
+	snprintf((char *)info->name, sizeof(info->name), "%s",
+		 print_efiname(&gpt_pte[part - 1]));
+	strcpy((char *)info->type, "U-Boot");
+	info->bootable = get_bootable(&gpt_pte[part - 1]);
+	info->type_flags = gpt_pte[part - 1].attributes.fields.type_guid_specific;
+	if (CONFIG_IS_ENABLED(PARTITION_UUIDS)) {
+		uuid_bin_to_str(gpt_pte[part - 1].unique_partition_guid.b,
+				(char *)disk_partition_uuid(info),
+				UUID_STR_FORMAT_GUID);
+	}
+	if (IS_ENABLED(CONFIG_PARTITION_TYPE_GUID)) {
+		uuid_bin_to_str(gpt_pte[part - 1].partition_type_guid.b,
+				(char *)disk_partition_type_guid(info),
+				UUID_STR_FORMAT_GUID);
+	}
+
+	log_debug("nested part %d: abs start 0x" LBAF ", size 0x" LBAF
+		  ", name %s\n", part, info->start, info->size, info->name);
+
+	free(gpt_pte);
+	return 0;
+}
+
 /*
  * Add an 'a_' prefix so it comes before 'dos' in the linker list. We need to
  * check EFI first, since a DOS partition is often used as a 'protective MBR'
