@@ -556,6 +556,49 @@ int blk_get_device_part_str(const char *ifname, const char *dev_part_str,
 		/* Something specified -> use exactly that */
 		part = (int)hextoul(part_str, &ep);
 		/*
+		 * Check for nested partition syntax: dev:outer:nested
+		 * e.g. "0:1:2" -> device 0, outer partition 1, nested partition 2
+		 */
+		if (*ep == ':') {
+#if CONFIG_IS_ENABLED(EFI_PARTITION)
+			int outer_part = part;
+			int nested_part;
+			struct disk_partition outer_info;
+			char *nested_ep;
+
+			nested_part = (int)hextoul(ep + 1, &nested_ep);
+			if (*nested_ep || nested_part < 1) {
+				printf("** Bad nested partition specification %s %s **\n",
+				       ifname, dev_part_str);
+				ret = -ENOENT;
+				goto cleanup;
+			}
+
+			ret = part_get_info(*desc, outer_part, &outer_info);
+			if (ret) {
+				printf("** Invalid outer partition %d **\n", outer_part);
+				goto cleanup;
+			}
+
+			ret = part_get_info_efi_nested(*desc, outer_info.start,
+						       outer_info.size,
+						       nested_part, info);
+			if (ret) {
+				printf("** Invalid nested partition %d in partition %d **\n",
+				       nested_part, outer_part);
+				goto cleanup;
+			}
+
+			(*desc)->log2blksz = LOG2((*desc)->blksz);
+			ret = nested_part;
+			goto cleanup;
+#else
+			printf("** Nested partitions require EFI partition support **\n");
+			ret = -ENOTSUP;
+			goto cleanup;
+#endif
+		}
+		/*
 		 * Less than whole string converted,
 		 * or request for whole device, but caller requires partition.
 		 */

@@ -680,6 +680,27 @@ int get_disk_guid(struct blk_desc *desc, char *guid);
  */
 int part_get_gpt_pte(struct blk_desc *desc, int part, gpt_entry *gpt_e);
 
+/**
+ * part_get_info_efi_nested() - get partition info from a GPT embedded within
+ *                              a parent GPT partition
+ *
+ * Reads the nested GPT header at LBA 1 relative to @outer_start and returns
+ * information about partition @part.  The nested GPT must use LBA addresses
+ * relative to the start of the parent partition.  The returned info->start is
+ * the absolute LBA on the block device.
+ *
+ * @desc:         block device descriptor
+ * @outer_start:  start LBA of the parent partition on the block device
+ * @outer_size:   size in blocks of the parent partition
+ * @part:         1-based partition number within the nested GPT
+ * @info:         returns partition information; info->start is absolute
+ *
+ * Return: 0 on success, negative errno on error
+ */
+int part_get_info_efi_nested(struct blk_desc *desc, lbaint_t outer_start,
+			     lbaint_t outer_size, int part,
+			     struct disk_partition *info);
+
 #endif
 
 #if CONFIG_IS_ENABLED(DOS_PARTITION)
