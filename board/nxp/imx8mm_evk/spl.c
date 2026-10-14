@@ -20,10 +20,13 @@
 #include <asm/arch/ddr.h>
 #include <asm/sections.h>
 
+#include <i2c.h>
+#include <linux/errno.h>
 #include <power/pmic.h>
 #ifdef CONFIG_POWER_PCA9450
 #include <power/pca9450.h>
-#else
+#endif
+#ifdef CONFIG_POWER_BD71837
 #include <power/bd71837.h>
 #endif
 #include <asm/mach-imx/gpio.h>
@@ -192,13 +195,21 @@ int board_mmc_getcd(struct mmc *mmc)
 
 #if CONFIG_IS_ENABLED(POWER_LEGACY)
 #define I2C_PMIC	0
+/*
+ * The EVK comes with one of two PMICs: a ROHM BD71847 on revisions A and B, an
+ * NXP PCA9450 on the EVKB. They answer at different addresses on the same bus,
+ * which is what tells the boards apart here, see power_init_board()
+ */
+#define PCA9450_I2C_ADDR	0x25
+#define BD71837_I2C_ADDR	0x4b
+
 #ifdef CONFIG_POWER_PCA9450
-int power_init_board(void)
+static int power_init_pca9450(void)
 {
 	struct pmic *p;
 	int ret;
 
-	ret = power_pca9450_init(I2C_PMIC, 0x25);
+	ret = power_pca9450_init(I2C_PMIC, PCA9450_I2C_ADDR);
 	if (ret)
 		printf("power init failed");
 	p = pmic_get("PCA9450");
@@ -227,8 +238,10 @@ int power_init_board(void)
 
 	return 0;
 }
-#else
-int power_init_board(void)
+#endif
+
+#ifdef CONFIG_POWER_BD71837
+static int power_init_bd71837(void)
 {
 	struct pmic *p;
 	int ret;
@@ -264,6 +277,31 @@ int power_init_board(void)
 	return 0;
 }
 #endif
+
+/*
+ * Set up the rails of whichever PMIC the board carries, before DRAM is touched
+ *
+ * Built for one PMIC only, this used to leave the other board's rails at their
+ * reset values - VDD_SOC at 0.80V rather than the 0.85V the DRAM wants on a
+ * BD71847 board running a PCA9450 build - with nothing said but a probe failure.
+ * Asking the bus costs an address cycle per PMIC, and a board with neither is
+ * reported rather than set up blind.
+ */
+int power_init_board(void)
+{
+	i2c_set_bus_num(I2C_PMIC);
+#ifdef CONFIG_POWER_PCA9450
+	if (!i2c_probe(PCA9450_I2C_ADDR))
+		return power_init_pca9450();
+#endif
+#ifdef CONFIG_POWER_BD71837
+	if (!i2c_probe(BD71837_I2C_ADDR))
+		return power_init_bd71837();
+#endif
+	printf("PMIC: none answers on i2c bus %d, rails left at their reset values\n",
+	       I2C_PMIC);
+	return -ENODEV;
+}
 #endif
 
 void spl_board_init(void)

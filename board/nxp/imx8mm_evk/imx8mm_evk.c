@@ -22,6 +22,7 @@
 #include <asm/mach-imx/gpio.h>
 #include <asm/mach-imx/mxc_i2c.h>
 #include <i2c.h>
+#include <dm/uclass.h>
 #include <asm/io.h>
 #include "../common/tcpc.h"
 #include <usb.h>
@@ -365,10 +366,47 @@ static void setup_eth_mac_if_empty(int dev_id, const char *envname)
 }
 #endif
 
+/*
+ * Point fdtfile at the kernel FIT configuration for this board
+ *
+ * The EVK carries a ROHM BD71847 PMIC on revisions A and B and an NXP PCA9450 on
+ * the EVKB, at different addresses on the same bus - the check SPL makes before
+ * setting up the rails, see power_init_board() in spl.c. Which FIT configuration
+ * each board boots is the kernel snap's naming, so it is not spelled here but
+ * read from 'fdtfile_pca9450' and 'fdtfile_bd71847' in imx8mm_evk.env. A board
+ * where neither answers keeps the default fdtfile.
+ */
+static void board_select_fdtfile(void)
+{
+	struct udevice *bus, *chip;
+	const char *fdtfile = NULL;
+
+	if (uclass_get_device_by_seq(UCLASS_I2C, 0, &bus)) {
+		printf("Board: no i2c bus 0, keeping fdtfile %s\n", env_get("fdtfile"));
+		return;
+	}
+
+	if (!dm_i2c_probe(bus, 0x25, 0, &chip)) {
+		fdtfile = env_get("fdtfile_pca9450");
+		printf("Board: EVKB, PCA9450 PMIC\n");
+	} else if (!dm_i2c_probe(bus, 0x4b, 0, &chip)) {
+		fdtfile = env_get("fdtfile_bd71847");
+		printf("Board: EVK, BD71847 PMIC\n");
+	} else {
+		printf("Board: no PMIC answers, keeping fdtfile %s\n", env_get("fdtfile"));
+	}
+
+	if (fdtfile)
+		env_set("fdtfile", fdtfile);
+}
+
 int board_late_init(void)
 {
 	if (IS_ENABLED(CONFIG_ENV_IS_IN_MMC))
 		board_late_mmc_env_init();
+
+	if (IS_ENABLED(CONFIG_DM_I2C))
+		board_select_fdtfile();
 
 	if (IS_ENABLED(CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG)) {
 		env_set("board_name", "EVK");
