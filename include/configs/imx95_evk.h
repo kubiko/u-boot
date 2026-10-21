@@ -32,4 +32,6 @@
 #include "imx95_evk_android.h"
 #endif
 
+#include "ubuntu_env.h"
+
 #endif
