@@ -10,6 +10,7 @@ obj-y += board_spl.o
 else
 obj-y += board.o
 obj-$(CONFIG_EFI_HAVE_CAPSULE_SUPPORT) += capsule_update.o
+obj-$(CONFIG_QCOM_SECBOOT_STATE) += secboot.o
 endif
 
 obj-$(CONFIG_OF_LIVE) += of_fixup.o

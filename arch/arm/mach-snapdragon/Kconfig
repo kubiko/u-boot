@@ -59,6 +59,22 @@ config QCOM_GENERATE_MBN
 	  New platforms can be added to tools/qcom/mkmbn/mkmbn.py if they aren't already
 	  supported.
 
+config QCOM_SECBOOT_STATE
+	bool "Act on the secure boot state reported by TrustZone"
+	depends on ARM64 && !SPL
+	select BOARD_EARLY_INIT_F
+	imply DISABLE_CONSOLE
+	help
+	  Query TrustZone for the secure boot fuses of the device. On a device
+	  known to be open, a failed FIT signature check is only a warning and
+	  "dangerous" is added to the kernel command line. Anything else is
+	  treated as locked: failed checks stay fatal and "panic=-1" is added.
+	  With DISABLE_CONSOLE the console is also turned off on a device with
+	  secure boot fused on.
+
+	  Enable this for images which get their FIT public key from U-Boot's
+	  own device tree, on a TrustZone implementing the secure state call.
+
 choice
 	prompt "Qualcomm boot0.h workaround"
 	optional
