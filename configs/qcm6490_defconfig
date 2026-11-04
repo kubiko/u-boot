@@ -87,13 +87,13 @@ CONFIG_CMD_NVEDIT_LOAD=y
 # CONFIG_BOOTM_VXWORKS is not set
 # CONFIG_CMD_ELF is not set
 
-# Kernel snap and its filesystems
-CONFIG_FS_EXT4=y
-CONFIG_CMD_EXT4=y
+# The kernel comes from the squashfs of the base snap
+# CONFIG_FS_EXT4 is not set
+# CONFIG_CMD_EXT4 is not set
 # CONFIG_CMD_EXT4_WRITE is not set
 # CONFIG_CMD_EXT2 is not set
 # CONFIG_FS_FAT is not set
-CONFIG_CMD_FS_GENERIC=y
+# CONFIG_CMD_FS_GENERIC is not set
 CONFIG_CMD_SQUASHFS=y
 CONFIG_LZ4=y
 CONFIG_LZMA=y
