@@ -43,7 +43,7 @@ static inline struct env_scsi_info *env_scsi_get_part(void)
 
 	if (CONFIG_ENV_SCSI_PART_UUID[0] == '\0') {
 		if (blk_get_device_part_str("scsi", CONFIG_ENV_SCSI_HW_PARTITION,
-					    &ep->blk, &ep->part, true))
+					    &ep->blk, &ep->part, true) < 0)
 			return NULL;
 	} else {
 		if (scsi_get_blk_by_uuid(CONFIG_ENV_SCSI_PART_UUID, &ep->blk, &ep->part))
