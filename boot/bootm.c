@@ -45,6 +45,10 @@
 #include <android_image.h>
 #endif /* !USE_HOSTCC && CONFIG_ANDROID_BOOT_IMAGE */
 
+#if !defined(USE_HOSTCC) && defined(CONFIG_QCOM_SECBOOT_STATE)
+#include <mach/secboot.h>
+#endif /* !USE_HOSTCC && CONFIG_QCOM_SECBOOT_STATE */
+
 #define MAX_CMDLINE_SIZE	SZ_4K
 
 #define IH_INITRD_ARCH IH_ARCH_DEFAULT
@@ -1165,6 +1169,43 @@ int bootm_process_cmdline_env(int flags)
 	return 0;
 }
 
+#if !defined(USE_HOSTCC) && defined(CONFIG_QCOM_SECBOOT_STATE)
+
+#define DANGEROUS_ARG     "dangerous"
+#define PANIC_ARG         "panic=-1"
+#define EXTRA_ARG_LEN (sizeof(DANGEROUS_ARG) - 1)
+
+/**
+ * fixup_secure_linux() - Update cmdline for the secure boot state of the device
+ *
+ * Add "dangerous" on a device which is known to be open, this eases development
+ * on devices which are not locked down, otherwise add "panic=-1".
+ */
+static void fixup_secure_linux(void)
+{
+	char *buf;
+	char *cmdline = env_get("bootargs");
+
+	if (!cmdline)
+		cmdline = "";
+	/* Allocate space for maximum possible new command line */
+	buf = malloc(strlen(cmdline) + 1 + EXTRA_ARG_LEN + 1);
+	if (!buf) {
+		debug("%s: out of memory\n", __func__);
+		return;
+	}
+	if (qcom_device_is_locked()) {
+		sprintf(buf, "%s %s", cmdline, PANIC_ARG);
+		printf("Device is locked, adding \"%s\" to bootargs\n", PANIC_ARG);
+	} else {
+		sprintf(buf, "%s %s", cmdline, DANGEROUS_ARG);
+		printf("Device is unlocked, adding \"%s\" to bootargs\n", DANGEROUS_ARG);
+	}
+	env_set("bootargs", buf);
+	free(buf);
+}
+#endif /* !USE_HOSTCC && CONFIG_QCOM_SECBOOT_STATE */
+
 int bootm_measure(struct bootm_headers *images)
 {
 	int ret = 0;
@@ -1350,6 +1391,9 @@ int bootm_run_states(struct bootm_info *bmi, int states)
 			ret = CMD_RET_FAILURE;
 			goto err;
 		}
+#if !defined(USE_HOSTCC) && defined(CONFIG_QCOM_SECBOOT_STATE)
+		fixup_secure_linux();
+#endif /* !USE_HOSTCC && CONFIG_QCOM_SECBOOT_STATE */
 		ret = boot_fn(BOOTM_STATE_OS_PREP, bmi);
 	}
 
