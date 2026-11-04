@@ -5,3 +5,4 @@
 #include "qcm6490_defconfig"
 
 CONFIG_DEFAULT_DEVICE_TREE="qcom/qcs6490-thundercomm-rubikpi3"
+CONFIG_SYS_BOARD="rubikpi3"
