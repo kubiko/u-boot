@@ -333,6 +333,9 @@ config ENV_IS_IN_SCSI
 
 	  UUID of the SCSI partition where the environment is stored.
 
+	  With CONFIG_ENV_REDUNDANT the redundant copy is stored directly after
+	  the first one, in the same partition.
+
 
 config ENV_RANGE
 	hex "Length of the region in which the environment can be written"

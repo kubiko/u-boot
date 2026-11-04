@@ -52,12 +52,19 @@ static inline struct env_scsi_info *env_scsi_get_part(void)
 
 	ep->count = CONFIG_ENV_SIZE / ep->part.blksz;
 
+	/* The redundant copy directly follows the first one */
+	if (IS_ENABLED(CONFIG_ENV_REDUNDANT) && ep->part.size < 2 * ep->count) {
+		printf("SCSI partition too small for the redundant environment\n");
+		return NULL;
+	}
+
 	return ep;
 }
 
 static int env_scsi_save(void)
 {
 	struct env_scsi_info *ep = env_scsi_get_part();
+	lbaint_t start;
 	int ret;
 
 	if (!ep)
@@ -67,8 +74,16 @@ static int env_scsi_save(void)
 	if (ret)
 		return ret;
 
-	if (blk_dwrite(ep->blk, ep->part.start, ep->count, &envbuf) != ep->count)
+	/* Write the copy which is not valid, so a failed write loses nothing */
+	start = ep->part.start;
+	if (IS_ENABLED(CONFIG_ENV_REDUNDANT) && gd->env_valid == ENV_VALID)
+		start += ep->count;
+
+	if (blk_dwrite(ep->blk, start, ep->count, &envbuf) != ep->count)
 		return -EIO;
+
+	if (IS_ENABLED(CONFIG_ENV_REDUNDANT))
+		gd->env_valid = gd->env_valid == ENV_VALID ? ENV_REDUND : ENV_VALID;
 
 	return 0;
 }
@@ -76,17 +91,46 @@ static int env_scsi_save(void)
 static int env_scsi_erase(void)
 {
 	struct env_scsi_info *ep = env_scsi_get_part();
+	int ret;
 
 	if (!ep)
 		return -ENOENT;
 
-	return (int)blk_derase(ep->blk, ep->part.start, ep->count);
+	ret = (int)blk_derase(ep->blk, ep->part.start, ep->count);
+	if (IS_ENABLED(CONFIG_ENV_REDUNDANT) && !ret)
+		ret = (int)blk_derase(ep->blk, ep->part.start + ep->count,
+				      ep->count);
+
+	return ret;
 }
 
 #if defined(ENV_IS_EMBEDDED)
 static int env_scsi_load(void)
 {
 	return 0;
+}
+#elif defined(CONFIG_ENV_REDUNDANT)
+static int env_scsi_load(void)
+{
+	ALLOC_CACHE_ALIGN_BUFFER(char, env1, CONFIG_ENV_SIZE);
+	ALLOC_CACHE_ALIGN_BUFFER(char, env2, CONFIG_ENV_SIZE);
+	struct env_scsi_info *ep = env_scsi_get_part();
+	int read1_fail, read2_fail;
+
+	if (!ep) {
+		if (CONFIG_ENV_SCSI_PART_UUID[0] == '\0')
+			env_set_default("SCSI partition " CONFIG_ENV_SCSI_HW_PARTITION " not found", 0);
+		else
+			env_set_default(CONFIG_ENV_SCSI_PART_UUID " partition not found", 0);
+
+		return -ENOENT;
+	}
+
+	read1_fail = blk_dread(ep->blk, ep->part.start, ep->count, env1) != ep->count;
+	read2_fail = blk_dread(ep->blk, ep->part.start + ep->count, ep->count,
+			       env2) != ep->count;
+
+	return env_import_redund(env1, read1_fail, env2, read2_fail, H_EXTERNAL);
 }
 #else
 static int env_scsi_load(void)
