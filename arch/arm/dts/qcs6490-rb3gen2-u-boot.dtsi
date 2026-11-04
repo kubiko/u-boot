@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0+
+
+/ {
+	signature {
+		required-mode = "any";
+		fit-key {
+			required = "conf";
+			algo = "sha256,rsa2048";
+			key-name-hint = "dev-fit-key";
+#include "u-boot-fit-pubkey.dtsi"
+		};
+	};
+};
