@@ -2043,6 +2043,23 @@ bool android_image_get_bootimg_size(const void *hdr, u32 *boot_img_size);
 bool android_image_get_vendor_bootimg_size(const void *hdr, u32 *vendor_boot_img_size);
 
 /**
+ * android_image_get_cmdline() - Get the kernel cmdline of an Android boot image
+ *
+ * @img_data: Parsed Android boot image data
+ * Return: the kernel command line of the image
+ */
+const char *android_image_get_cmdline(const struct andr_image_data *img_data);
+
+/**
+ * android_image_get_kernel_addr() - Get the kernel address of an Android boot image
+ *
+ * @img_data: Parsed Android boot image data
+ * @comp: Compression type of the kernel
+ * Return: address the kernel is loaded from
+ */
+ulong android_image_get_kernel_addr(struct andr_image_data *img_data, ulong comp);
+
+/**
  * android_image_get_data() - Parse Android boot images
  *
  * This is used to parse boot and vendor-boot header into
