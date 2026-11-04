@@ -20,6 +20,10 @@ DECLARE_GLOBAL_DATA_PTR;
 #define IMAGE_MAX_HASHED_NODES		100
 #define FIT_MAX_HASH_PATH_BUF		4096
 
+#if !defined(USE_HOSTCC) && defined(CONFIG_QCOM_SECBOOT_STATE)
+#include <mach/secboot.h>
+#endif /* !USE_HOSTCC && CONFIG_QCOM_SECBOOT_STATE */
+
 /**
  * fit_region_make_list() - Make a list of image regions
  *
@@ -128,6 +132,13 @@ int fit_image_check_sig(const void *fit, int noffset, const void *data,
 	region.size = size;
 
 	if (info.crypto->verify(&info, &region, 1, fit_value, fit_value_len)) {
+#if !defined(USE_HOSTCC) && defined(CONFIG_QCOM_SECBOOT_STATE)
+		/* if the device is known to be open, only warn */
+		if (!qcom_device_is_locked()) {
+			puts(" Verification failed! But device is unlocked... ");
+			return 0;
+		}
+#endif /* !USE_HOSTCC && CONFIG_QCOM_SECBOOT_STATE */
 		*err_msgp = "Verification failed";
 		return -1;
 	}
@@ -565,6 +576,13 @@ static int fit_config_check_sig(const void *fit, int noffset, int conf_noffset,
 	fit_region_make_list(fit, fdt_regions, count, region);
 	if (info.crypto->verify(&info, region, count, fit_value,
 				fit_value_len)) {
+#if !defined(USE_HOSTCC) && defined(CONFIG_QCOM_SECBOOT_STATE)
+		/* if the device is known to be open, only warn */
+		if (!qcom_device_is_locked()) {
+			puts(" Verification failed! But device is unlocked... ");
+			return 0;
+		}
+#endif /* !USE_HOSTCC && CONFIG_QCOM_SECBOOT_STATE */
 		*err_msgp = "Verification failed";
 		return -1;
 	}
