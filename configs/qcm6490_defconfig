@@ -50,10 +50,12 @@ CONFIG_XXHASH=y
 # Environment: on the system-boot-state partition, and only what the flags
 # list makes writeable can come from there
 # CONFIG_ENV_USE_DEFAULT_ENV_TEXT_FILE is not set
-# Userspace keeps its A/B records here too: nothing else survives loading the
-# stored env, and U-Boot saves the env itself on every try boot, so what is not
-# listed is gone for good by then
-CONFIG_ENV_FLAGS_LIST_STATIC="kernel_status:sw,snap_kernel:sw,snap_try_kernel:sw,active_slot:sw,kernel_filename:sw,snapd_recovery_mode:sw,try_mode:sw,try_slot:sw,try_rev:sw,active_apps_slot:sw,apps_try_mode:sw,apps_try_slot:sw,apps_try_rev:sw"
+# The system slot's A/B record is here: 'active_slot' and the
+# 'slot_status'/'try_slot' handshake snapd arms for a trial. Nothing else
+# survives loading the stored env, and U-Boot saves the env itself on every try
+# boot, so what is not listed is gone for good by then. The apps slot's state
+# is in snapd's modeenv, and 'kernel_filename' comes from the default env alone
+CONFIG_ENV_FLAGS_LIST_STATIC="kernel_status:sw,snap_kernel:sw,snap_try_kernel:sw,active_slot:sw,snapd_recovery_mode:sw,try_slot:sw,slot_status:sw"
 CONFIG_ENV_CALLBACK_LIST_STATIC="kernel_status:kernel_status,snap_kernel:snap_file,snap_try_kernel:snap_file,snapd_recovery_mode:snapd_mode,snapd_recovery_system:snapd_system,snapd_recovery_kernel:snap_file"
 CONFIG_ENV_APPEND=y
 CONFIG_ENV_WRITEABLE_LIST=y
