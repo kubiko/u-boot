@@ -26,6 +26,11 @@ CONFIG_FASTBOOT_FLASH_BLOCK_DEVICE_ID=0
 CONFIG_SYS_BOARD="rb3gen2"
 CONFIG_SYS_CONFIG_NAME="qcom"
 CONFIG_QCOM_SECBOOT_STATE=y
+
+# OP-TEE in the secure world, which the FDE TA of Ubuntu Core mini runs in:
+# U-Boot copies its device tree node to the kernel's
+CONFIG_TEE=y
+CONFIG_OPTEE=y
 CONFIG_SYS_MALLOC_LEN=0x2000000
 CONFIG_SYS_CBSIZE=2048
 CONFIG_SYS_PBSIZE=2074
