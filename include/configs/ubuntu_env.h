@@ -18,7 +18,9 @@
  * does not load is gone for good the first time U-Boot saves the env itself,
  * which it does on every try boot. The apps slot's state is not here: snapd keeps
  * it in modeenv, as U-Boot never boots it. 'kernel_filename' comes from the
- * default env alone, the kernel's file name in the slot is fixed.
+ * default env alone, the kernel's file name in the slot is fixed. The
+ * 'snapd_*_cmdline_args' are the kernel arguments snapd keeps, which the
+ * 'snapd_cmdline' callback validates.
  */
 #define CFG_ENV_FLAGS_LIST_STATIC \
 	"kernel_status:sw," \
@@ -27,6 +29,8 @@
 	"active_slot:sw," \
 	"snapd_recovery_mode:sw," \
 	"try_slot:sw," \
-	"slot_status:sw"
+	"slot_status:sw," \
+	"snapd_full_cmdline_args:sw," \
+	"snapd_try_cmdline_args:sw"
 
 #endif /* UBUNTU_ENV_H */

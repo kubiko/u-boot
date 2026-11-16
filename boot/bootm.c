@@ -34,6 +34,7 @@
 
 #include <bootm.h>
 #include <image.h>
+#include <uc_mini_fde.h>
 #include <u-boot/zlib.h>
 
 #if !defined(USE_HOSTCC) && defined(CONFIG_ANDROID_BOOT_IMAGE)
@@ -1237,6 +1238,13 @@ int bootm_run_states(struct bootm_info *bmi, int states)
 #if !defined(USE_HOSTCC) && (defined(CONFIG_IMX_HAB) || defined(CONFIG_AHAB_BOOT))
 		fixup_secure_linux();
 #endif /* !USE_HOSTCC && (CONFIG_IMX_HAB || CONFIG_AHAB_BOOT) */
+#if !defined(USE_HOSTCC) && IS_ENABLED(CONFIG_UC_MINI_FDE_TA)
+		/* the final bootargs, gate word included */
+		if (uc_mini_fde_measure(images)) {
+			ret = CMD_RET_FAILURE;
+			goto err;
+		}
+#endif
 		ret = boot_fn(BOOTM_STATE_OS_PREP, bmi);
 	}
 
