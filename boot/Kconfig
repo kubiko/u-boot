@@ -1093,6 +1093,17 @@ config LEGACY_IMAGE_FORMAT
 	  loaded. If a board needs the legacy image format support in this
 	  case, enable it here.
 
+config UC_MINI_FDE_TA
+	bool "Measure the boot of Ubuntu Core mini into its FDE TA"
+	depends on TEE && OPTEE && FIT && CMD_BOOTM
+	select SHA256
+	help
+	  The FDE TA of Ubuntu Core mini (optee-uc-fde) v2 seals the keys of
+	  the encrypted volumes to a measured boot. With this, bootm extends
+	  the TA's register with the SHA-256 of the FIT and the final bootargs
+	  before it starts Linux, and the 'ucfde v2' command tells the boot env
+	  whether the TA is v2. With a v1 TA nothing is measured.
+
 config MEASURED_BOOT
 	bool "Measure boot images and configuration when booting without EFI"
 	depends on HASH && TPM_V2
