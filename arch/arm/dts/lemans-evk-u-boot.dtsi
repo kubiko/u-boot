@@ -19,6 +19,18 @@
 };
 
 / {
+	/*
+	 * OP-TEE runs in the secure world of these boards: U-Boot reaches it
+	 * through this node, and copies it to the kernel's device tree, with the
+	 * reserved-memory nodes named optee* OP-TEE added for its own memory.
+	 */
+	firmware {
+		optee {
+			compatible = "linaro,optee-tz";
+			method = "smc";
+		};
+	};
+
 	signature {
 		required-mode = "any";
 		fit-key {

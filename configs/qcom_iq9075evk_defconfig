@@ -11,6 +11,13 @@ CONFIG_DEFAULT_DEVICE_TREE="qcom/lemans-evk"
 CONFIG_SYS_BOARD="iq9075evk"
 CONFIG_SYS_CONFIG_NAME="qcom"
 CONFIG_QCOM_SECBOOT_STATE=y
+
+# OP-TEE in the secure world, which the FDE TA of Ubuntu Core mini runs in:
+# U-Boot copies its device tree node to the kernel's
+CONFIG_TEE=y
+CONFIG_OPTEE=y
+# bootm measures the boot into the FDE TA v2
+CONFIG_UC_MINI_FDE_TA=y
 CONFIG_SYS_MALLOC_LEN=0x2000000
 CONFIG_SYS_CBSIZE=2048
 CONFIG_SYS_PBSIZE=2074
@@ -35,8 +42,15 @@ CONFIG_XXHASH=y
 # Environment: on the system-boot-state partition, and only what the flags
 # list makes writeable can come from there
 # CONFIG_ENV_USE_DEFAULT_ENV_TEXT_FILE is not set
-CONFIG_ENV_FLAGS_LIST_STATIC="kernel_status:sw,snap_kernel:sw,snap_try_kernel:sw,snapd_recovery_mode:sw,snapd_recovery_system:sw,snapd_recovery_kernel:sw"
-CONFIG_ENV_CALLBACK_LIST_STATIC="kernel_status:kernel_status,snap_kernel:snap_file,snap_try_kernel:snap_file,snapd_recovery_mode:snapd_mode,snapd_recovery_system:snapd_system,snapd_recovery_kernel:snap_file"
+# The system slot's A/B record is here: 'active_slot' and the
+# 'slot_status'/'try_slot' handshake snapd arms for a trial. Nothing else
+# survives loading the stored env, and U-Boot saves the env itself on every try
+# boot, so what is not listed is gone for good by then. The apps slot's state
+# is in snapd's modeenv, and 'kernel_filename' comes from the default env alone.
+# The 'snapd_*_cmdline_args' are the kernel arguments snapd keeps, which the
+# 'snapd_cmdline' callback validates
+CONFIG_ENV_FLAGS_LIST_STATIC="kernel_status:sw,snap_kernel:sw,snap_try_kernel:sw,active_slot:sw,snapd_recovery_mode:sw,try_slot:sw,slot_status:sw,snapd_full_cmdline_args:sw,snapd_try_cmdline_args:sw"
+CONFIG_ENV_CALLBACK_LIST_STATIC="kernel_status:kernel_status,snap_kernel:snap_file,snap_try_kernel:snap_file,snapd_recovery_mode:snapd_mode,snapd_recovery_system:snapd_system,snapd_recovery_kernel:snap_file,snapd_full_cmdline_args:snapd_cmdline,snapd_try_cmdline_args:snapd_cmdline"
 CONFIG_ENV_APPEND=y
 CONFIG_ENV_WRITEABLE_LIST=y
 CONFIG_ENV_ACCESS_IGNORE_FORCE=y
@@ -70,13 +84,14 @@ CONFIG_CMD_NVEDIT_LOAD=y
 # CONFIG_BOOTM_VXWORKS is not set
 # CONFIG_CMD_ELF is not set
 
-# Kernel snap and its filesystems
-CONFIG_FS_EXT4=y
-CONFIG_CMD_EXT4=y
+# The kernel comes from the squashfs of the base snap
+# CONFIG_FS_EXT4 is not set
+# CONFIG_CMD_EXT4 is not set
 # CONFIG_CMD_EXT4_WRITE is not set
 # CONFIG_CMD_EXT2 is not set
 # CONFIG_FS_FAT is not set
-CONFIG_CMD_FS_GENERIC=y
+# CONFIG_CMD_FS_GENERIC is not set
+CONFIG_CMD_SQUASHFS=y
 CONFIG_LZ4=y
 CONFIG_LZMA=y
 CONFIG_LZO=y
