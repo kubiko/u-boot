@@ -1,0 +1,100 @@
+# Configuration for building U-Boot for Ubuntu Core on the Qualcomm IQ-9075
+# EVK (lemans, QCS9075), flashed to the uefi partition, or as BL33 in the
+# TF-A FIP.
+
+#include "qcom_qcs9100_defconfig"
+
+CONFIG_DEFAULT_DEVICE_TREE="qcom/lemans-evk"
+
+# Ubuntu Core boot
+# Board env in board/qualcomm/<board>/, the board code stays the common one
+CONFIG_SYS_BOARD="iq9075evk"
+CONFIG_SYS_CONFIG_NAME="qcom"
+CONFIG_QCOM_SECBOOT_STATE=y
+CONFIG_SYS_MALLOC_LEN=0x2000000
+CONFIG_SYS_CBSIZE=2048
+CONFIG_SYS_PBSIZE=2074
+# The boot env is a script
+CONFIG_HUSH_PARSER=y
+CONFIG_USE_BOOTCOMMAND=y
+CONFIG_BOOTCOMMAND="run boot_uc"
+# The FIT image has to fit, with its kernel, initrd and all devicetrees
+CONFIG_FASTBOOT_BUF_SIZE=0x10000000
+
+# Only signed FIT images may boot: bootm takes the other formats unverified
+CONFIG_FIT_SIGNATURE=y
+CONFIG_FIT_SIGNATURE_MAX_SIZE=0x10000000
+CONFIG_RSA_SOFTWARE_EXP=y
+# CONFIG_ANDROID_BOOT_IMAGE is not set
+# CONFIG_LEGACY_IMAGE_FORMAT is not set
+CONFIG_SHA1=y
+CONFIG_SHA256=y
+CONFIG_MD5=y
+CONFIG_XXHASH=y
+
+# Environment: on the system-boot-state partition, and only what the flags
+# list makes writeable can come from there
+# CONFIG_ENV_USE_DEFAULT_ENV_TEXT_FILE is not set
+CONFIG_ENV_FLAGS_LIST_STATIC="kernel_status:sw,snap_kernel:sw,snap_try_kernel:sw,snapd_recovery_mode:sw,snapd_recovery_system:sw,snapd_recovery_kernel:sw"
+CONFIG_ENV_CALLBACK_LIST_STATIC="kernel_status:kernel_status,snap_kernel:snap_file,snap_try_kernel:snap_file,snapd_recovery_mode:snapd_mode,snapd_recovery_system:snapd_system,snapd_recovery_kernel:snap_file"
+CONFIG_ENV_APPEND=y
+CONFIG_ENV_WRITEABLE_LIST=y
+CONFIG_ENV_ACCESS_IGNORE_FORCE=y
+# CONFIG_ENV_OVERWRITE is not set
+CONFIG_ENV_SIZE=0x2000
+CONFIG_ENV_REDUNDANT=y
+CONFIG_ENV_IS_NOWHERE=y
+CONFIG_ENV_IS_IN_SCSI=y
+CONFIG_ENV_SCSI_HW_PARTITION="0:1"
+CONFIG_ENV_SCSI_PART_UUID=""
+CONFIG_CMD_ASKENV=y
+CONFIG_CMD_ENV_FLAGS=y
+CONFIG_CMD_NVEDIT_INFO=y
+CONFIG_CMD_NVEDIT_LOAD=y
+# CONFIG_CMD_ERASEENV is not set
+# CONFIG_CMD_EXPORTENV is not set
+# CONFIG_CMD_IMPORTENV is not set
+
+# Boot only the one way the env says
+# CONFIG_BOOTSTD_FULL is not set
+# CONFIG_CMD_BOOTMENU is not set
+# CONFIG_CMD_BOOTD is not set
+# CONFIG_CMD_BOOTDEV is not set
+# CONFIG_CMD_BOOTFLOW is not set
+# CONFIG_CMD_BOOTMETH is not set
+# CONFIG_CMD_BOOTSTD is not set
+# CONFIG_CMD_ABOOTIMG is not set
+# CONFIG_BOOTM_NETBSD is not set
+# CONFIG_BOOTM_PLAN9 is not set
+# CONFIG_BOOTM_RTEMS is not set
+# CONFIG_BOOTM_VXWORKS is not set
+# CONFIG_CMD_ELF is not set
+
+# Kernel snap and its filesystems
+CONFIG_FS_EXT4=y
+CONFIG_CMD_EXT4=y
+# CONFIG_CMD_EXT4_WRITE is not set
+# CONFIG_CMD_EXT2 is not set
+# CONFIG_FS_FAT is not set
+CONFIG_CMD_FS_GENERIC=y
+CONFIG_LZ4=y
+CONFIG_LZMA=y
+CONFIG_LZO=y
+CONFIG_GZIP=y
+CONFIG_ZLIB=y
+CONFIG_ZSTD=y
+CONFIG_BZIP2=y
+
+# EFI: the stub kernel in the FIT image, keys from the build. Capsules would be
+# unauthenticated firmware updates
+CONFIG_BOOTM_EFI=y
+CONFIG_CMD_BOOTEFI=y
+CONFIG_EFI_LOADER=y
+CONFIG_EFI_SECURE_BOOT=y
+CONFIG_EFI_VARIABLES_PRESEED=y
+CONFIG_EFI_VAR_SEED_FILE="ubootefi.var"
+# CONFIG_CMD_EFIDEBUG is not set
+# CONFIG_CMD_NVEDIT_EFI is not set
+# CONFIG_EFI_RUNTIME_UPDATE_CAPSULE is not set
+# CONFIG_EFI_CAPSULE_ON_DISK is not set
+# CONFIG_EFI_CAPSULE_FIRMWARE_RAW is not set
